@@ -1,65 +1,31 @@
-// const mysql = require("mysql2");
+const mysql = require("mysql2/promise");
+require("dotenv").config();
 
-// const db = mysql.createConnection({
-//   host: "localhost",
-//   user: "root",
-//   password: "",
-//   database: "sistelpay"
-// });
+// Parsear DATABASE_URL de PlanetScale
+const url = new URL(process.env.DATABASE_URL);
 
-// // 🔹 Conectar y mostrar mensaje en consola
-// db.connect((err) => {
-//   if (err) {
-//     console.error("❌ Error al conectar a MySQL:", err.message);
-//   } else {
-//     console.log("✅ Conectado a la base de datos MySQL 'sistelpay'");
-//   }
-// });
-
-// module.exports = db;
-
-// require("dotenv").config(); // 🔹 Cargar variables de .env
-// const mysql = require("mysql2");
-
-// const db = mysql.createConnection({
-//   host: process.env.DB_HOST,        // Ej: "your-database-host.planetscale.com"
-//   user: process.env.DB_USER,        // Ej: "username"
-//   password: process.env.DB_PASSWORD,// Ej: "password"
-//   database: process.env.DB_NAME,    // Ej: "sistelpay"
-//   ssl: {
-//     rejectUnauthorized: true
-//   }
-// });
-
-// // 🔹 Conectar y mostrar mensaje en consola
-// db.connect((err) => {
-//   if (err) {
-//     console.error("❌ Error al conectar a MySQL:", err.message);
-//   } else {
-//     console.log(`✅ Conectado a la base de datos MySQL '${process.env.DB_NAME}'`);
-//   }
-// });
-
-// module.exports = db;
-
-require("dotenv").config(); // 🔹 Cargar variables de .env
-const mysql = require("mysql2");
-
-const db = mysql.createConnection({
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "sistelpay",
-  // 🔹 Para local, no se necesita SSL
+const db = mysql.createPool({
+  host: url.hostname,
+  user: url.username,
+  password: url.password,
+  database: url.pathname.replace("/", ""),
+  port: url.port || 3306,
+  waitForConnections: true,
+  connectionLimit: 5,
+  queueLimit: 0,
+  ssl: { rejectUnauthorized: true },
+  connectTimeout: 20000,
 });
 
-// 🔹 Conectar y mostrar mensaje en consola
-db.connect((err) => {
-  if (err) {
-    console.error("❌ Error al conectar a MySQL:", err.message);
-  } else {
-    console.log(`✅ Conectado a la base de datos MySQL '${process.env.DB_NAME || "sistelpay"}'`);
+// Verificar conexión
+(async () => {
+  try {
+    const connection = await db.getConnection();
+    console.log("✅ Conectado a PlanetScale correctamente");
+    connection.release();
+  } catch (err) {
+    console.error("❌ Error conectando a PlanetScale:", err);
   }
-});
+})();
 
 module.exports = db;
