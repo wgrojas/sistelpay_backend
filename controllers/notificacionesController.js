@@ -1,130 +1,130 @@
-const db = require("../config/db");
+// src/controllers/notificacionesController.js
+const db = require("../config/db"); // tu pool mysql2/promise
 
 // 1️⃣ Crear notificación (ej: envío de dinero)
-exports.crearNotificacion = (req, res) => {
-  const { telefono_destino, mensaje, monto } = req.body;
-  console.log("📩 BODY:", req.body);
+exports.crearNotificacion = async (req, res) => {
+  try {
+    const { telefono_destino, mensaje, monto } = req.body;
+    console.log("📩 BODY:", req.body);
 
-  if (!telefono_destino || !mensaje) {
-    return res.status(400).json({ msg: "Faltan datos obligatorios" });
-  }
-
-  const query = `
-    INSERT INTO notificaciones (telefono_destino, mensaje, monto)
-    VALUES (?, ?, ?)
-  `;
-
-  db.query(query, [telefono_destino, mensaje, monto || 0], (err, result) => {
-    if (err) {
-      console.error("Error al crear notificación:", err);
-      return res.status(500).json({ msg: "Error del servidor" });
+    if (!telefono_destino || !mensaje) {
+      return res.status(400).json({ msg: "Faltan datos obligatorios" });
     }
+
+    const query = `
+      INSERT INTO notificaciones (telefono_destino, mensaje, monto)
+      VALUES (?, ?, ?)
+    `;
+
+    const [result] = await db.execute(query, [
+      telefono_destino,
+      mensaje,
+      monto || 0,
+    ]);
 
     res.json({
       msg: "Notificación creada",
       notif_id: result.insertId,
     });
-  });
+  } catch (err) {
+    console.error("Error al crear notificación:", err);
+    res.status(500).json({ msg: "Error del servidor" });
+  }
 };
 
-// 2️⃣ Obtener notificaciones de un usuario (tipo bandeja Nequi)
-exports.obtenerNotificaciones = (req, res) => {
-  const { telefono } = req.params;
+// 2️⃣ Obtener todas las notificaciones de un usuario
+exports.obtenerNotificaciones = async (req, res) => {
+  try {
+    const { telefono } = req.params;
 
-  const query = `
-    SELECT *
-    FROM notificaciones
-    WHERE telefono_destino = ?
-    ORDER BY fecha DESC
-  `;
+    const query = `
+      SELECT *
+      FROM notificaciones
+      WHERE telefono_destino = ?
+      ORDER BY fecha DESC
+    `;
 
-  db.query(query, [telefono], (err, results) => {
-    if (err) {
-      console.error("Error al obtener notificaciones:", err);
-      return res.status(500).json({ msg: "Error del servidor" });
-    }
-
+    const [results] = await db.execute(query, [telefono]);
     res.json(results);
-  });
+  } catch (err) {
+    console.error("Error al obtener notificaciones:", err);
+    res.status(500).json({ msg: "Error del servidor" });
+  }
 };
 
 // 3️⃣ Obtener solo notificaciones pendientes
-exports.obtenerPendientes = (req, res) => {
-  const { telefono } = req.params;
+exports.obtenerPendientes = async (req, res) => {
+  try {
+    const { telefono } = req.params;
 
-  const query = `
-    SELECT *
-    FROM notificaciones
-    WHERE telefono_destino = ?
-    AND estado = 'pendiente'
-    ORDER BY fecha DESC
-  `;
+    const query = `
+      SELECT *
+      FROM notificaciones
+      WHERE telefono_destino = ?
+        AND estado = 'pendiente'
+      ORDER BY fecha DESC
+    `;
 
-  db.query(query, [telefono], (err, results) => {
-    if (err) {
-      console.error("Error:", err);
-      return res.status(500).json({ msg: "Error del servidor" });
-    }
-
+    const [results] = await db.execute(query, [telefono]);
     res.json(results);
-  });
+  } catch (err) {
+    console.error("Error al obtener notificaciones pendientes:", err);
+    res.status(500).json({ msg: "Error del servidor" });
+  }
 };
 
 // 4️⃣ Marcar notificación como enviada
-exports.marcarEnviada = (req, res) => {
-  const { notif_id } = req.params;
+exports.marcarEnviada = async (req, res) => {
+  try {
+    const { notif_id } = req.params;
 
-  const query = `
-    UPDATE notificaciones
-    SET estado = 'enviada'
-    WHERE notif_id = ?
-  `;
+    const query = `
+      UPDATE notificaciones
+      SET estado = 'enviada'
+      WHERE notif_id = ?
+    `;
 
-  db.query(query, [notif_id], (err) => {
-    if (err) {
-      console.error("Error:", err);
-      return res.status(500).json({ msg: "Error del servidor" });
-    }
-
+    await db.execute(query, [notif_id]);
     res.json({ msg: "Notificación marcada como enviada" });
-  });
+  } catch (err) {
+    console.error("Error al marcar enviada:", err);
+    res.status(500).json({ msg: "Error del servidor" });
+  }
 };
 
-// 5️⃣ Marcar como leída (tipo abrir notificación en Nequi)
-exports.marcarLeida = (req, res) => {
-  const { notif_id } = req.params;
+// 5️⃣ Marcar notificación como leída
+exports.marcarLeida = async (req, res) => {
+  try {
+    const { notif_id } = req.params;
 
-  const query = `
-    UPDATE notificaciones
-    SET estado = 'leida'
-    WHERE notif_id = ?
-  `;
+    const query = `
+      UPDATE notificaciones
+      SET estado = 'leida'
+      WHERE notif_id = ?
+    `;
 
-  db.query(query, [notif_id], (err) => {
-    if (err) {
-      console.error("Error:", err);
-      return res.status(500).json({ msg: "Error del servidor" });
-    }
-
+    await db.execute(query, [notif_id]);
     res.json({ msg: "Notificación leída" });
-  });
+  } catch (err) {
+    console.error("Error al marcar leída:", err);
+    res.status(500).json({ msg: "Error del servidor" });
+  }
 };
 
 // 6️⃣ Eliminar notificación (opcional)
-exports.eliminarNotificacion = (req, res) => {
-  const { notif_id } = req.params;
+exports.eliminarNotificacion = async (req, res) => {
+  try {
+    const { notif_id } = req.params;
 
-  const query = `
-    DELETE FROM notificaciones
-    WHERE notif_id = ?
-  `;
+    const query = `
+      DELETE FROM notificaciones
+      WHERE notif_id = ?
+    `;
 
-  db.query(query, [notif_id], (err) => {
-    if (err) {
-      console.error("Error:", err);
-      return res.status(500).json({ msg: "Error del servidor" });
-    }
-
+    await db.execute(query, [notif_id]);
     res.json({ msg: "Notificación eliminada" });
-  });
+  } catch (err) {
+    console.error("Error al eliminar notificación:", err);
+    res.status(500).json({ msg: "Error del servidor" });
+  }
 };

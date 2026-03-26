@@ -13,8 +13,10 @@ const db = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 5,
   queueLimit: 0,
-  ssl: { rejectUnauthorized: true },
-  connectTimeout: 20000,
+  ssl: {
+    rejectUnauthorized: true,
+  },
+  // connectTimeout: 20000,
 });
 
 // Verificar conexión
