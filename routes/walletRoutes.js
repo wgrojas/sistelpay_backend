@@ -3,7 +3,7 @@ const router = express.Router();
 const walletController = require("../controllers/walletController");
 const authMiddleware = require("../middlewares/authMiddleware");
 
-// 🔒 Todas las rutas protegidas con JWT
+// // 🔒 Todas las rutas protegidas con JWT
 router.use(authMiddleware);
 
 // Obtener datos del usuario según token

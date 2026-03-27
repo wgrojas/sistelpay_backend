@@ -154,7 +154,7 @@ exports.login = async (req, res) => {
       },
     });
 
-    console.log("✅ Usuario logueado:", user);
+    console.log("✅ Usuario logueado:", user,token);
 
   } catch (error) {
     console.error("❌ Error login:", error);

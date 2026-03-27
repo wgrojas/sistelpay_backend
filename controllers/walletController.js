@@ -102,7 +102,9 @@ exports.editarUsuario = async (req, res) => {
 // =======================
 exports.getMovimientos = async (req, res) => {
   try {
+    console.log("telefono",req.user.telefono)
     const telefono = req.user.telefono;
+    console.log("telefono",telefono)
 
     const [results] = await db.execute(
       `SELECT t.trans_id, t.telefono_origen, t.telefono_destino, t.monto, t.estado, t.referencia, t.fecha,
