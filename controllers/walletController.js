@@ -1,16 +1,33 @@
-// walletController.js
 const db = require("../config/db"); // Pool mysql2/promise
+const jwt = require("jsonwebtoken");
 
 // =======================
-// Obtener datos del usuario según JWT
+// 🔐 Función para obtener usuario desde token
+// =======================
+const getUserFromToken = (req) => {
+  const token = req.header("Authorization");
+
+  if (!token) {
+    throw new Error("No hay token");
+  }
+
+  return jwt.verify(
+    token.replace("Bearer ", ""),
+    process.env.JWT_SECRET
+  );
+};
+
+// =======================
+// Obtener datos del usuario
 // =======================
 exports.getUsuario = async (req, res) => {
   try {
-    const userId = req.user.user_id;
+    const decoded = getUserFromToken(req);
+    const userId = decoded.user_id;
 
     const [results] = await db.execute(
       "SELECT user_id, nombre, identidad, telefono, email, saldo, estado FROM usuarios WHERE user_id = ?",
-      [userId],
+      [userId]
     );
 
     if (results.length === 0)
@@ -18,93 +35,52 @@ exports.getUsuario = async (req, res) => {
 
     res.json(results[0]);
   } catch (err) {
-    console.error("❌ ERROR GET USUARIO:", err);
-    res.status(500).json({ msg: "Error del servidor" });
+    console.error("❌ ERROR GET USUARIO:", err.message);
+    res.status(401).json({ msg: "Token inválido o error del servidor" });
   }
 };
 
 // =======================
-// Editar datos del usuario según JWT
+// Editar usuario
 // =======================
-// exports.editarUsuario = async (req, res) => {
-//   try {
-//     const userId = req.user.user_id;
-//     console.log(req.user.user_id)
-//     // const { nombre, identidad, telefono, email, estado } = req.body;
-
-//     await db.execute(
-//       "UPDATE usuarios SET nombre = ?, identidad = ?, telefono = ?, email = ?, estado = ? WHERE user_id = ?",
-//       [nombre, identidad, telefono, email, estado, userId]
-//     );
-
-//     res.json({ msg: "Usuario actualizado correctamente" });
-//   } catch (err) {
-//     console.error("❌ ERROR EDITAR USUARIO:", err);
-//     res.status(500).json({ msg: "Error al actualizar usuario" });
-//   }
-// };
-
 exports.editarUsuario = async (req, res) => {
   try {
-    const userId = req.user.user_id;
-    console.log("Usuario logueado:", userId);
+    const decoded = getUserFromToken(req);
+    const userId = decoded.user_id;
 
-    // Tomar los campos del body
     const { nombre, identidad, telefono, email } = req.body;
 
-    // Validar que se haya enviado al menos un dato (opcional)
     if (!nombre && !identidad && !telefono && !email) {
-      return res
-        .status(400)
-        .json({ msg: "No se enviaron datos para actualizar" });
+      return res.status(400).json({
+        msg: "No se enviaron datos para actualizar",
+      });
     }
 
     await db.execute(
       "UPDATE usuarios SET nombre = ?, identidad = ?, telefono = ?, email = ? WHERE user_id = ?",
-      [nombre, identidad, telefono, email, userId],
+      [
+        nombre ?? null,
+        identidad ?? null,
+        telefono ?? null,
+        email ?? null,
+        userId,
+      ]
     );
 
     res.json({ msg: "Usuario actualizado correctamente" });
   } catch (err) {
-    console.error("❌ ERROR EDITAR USUARIO:", err);
-    res.status(500).json({ msg: "Error al actualizar usuario" });
+    console.error("❌ ERROR EDITAR USUARIO:", err.message);
+    res.status(401).json({ msg: "Token inválido o error del servidor" });
   }
 };
 
-// exports.editarUsuario = async (req, res) => {
-//   try {
-//     const userId = req.user.user_id;
-//     console.log("Usuario logueado:", userId);
-
-//     // Tomar campos del body
-//     let { nombre, identidad, telefono, email, estado } = req.body;
-
-//     // Convertir undefined a null para MySQL
-//     nombre = nombre ?? null;
-//     identidad = identidad ?? null;
-//     telefono = telefono ?? null;
-//     email = email ?? null;
-//     estado = estado ?? null;
-
-//     await db.execute(
-//       "UPDATE usuarios SET nombre = ?, identidad = ?, telefono = ?, email = ?, estado = ? WHERE user_id = ?",
-//       [nombre, identidad, telefono, email, estado, userId]
-//     );
-
-//     res.json({ msg: "Usuario actualizado correctamente" });
-//   } catch (err) {
-//     console.error("❌ ERROR EDITAR USUARIO:", err);
-//     res.status(500).json({ msg: "Error al actualizar usuario" });
-//   }
-// };
 // =======================
-// Obtener historial de transacciones del usuario
+// Obtener movimientos
 // =======================
 exports.getMovimientos = async (req, res) => {
   try {
-    console.log("telefono",req.user.telefono)
-    const telefono = req.user.telefono;
-    console.log("telefono",telefono)
+    const decoded = getUserFromToken(req);
+    const telefono = decoded.telefono;
 
     const [results] = await db.execute(
       `SELECT t.trans_id, t.telefono_origen, t.telefono_destino, t.monto, t.estado, t.referencia, t.fecha,
@@ -115,18 +91,18 @@ exports.getMovimientos = async (req, res) => {
        LEFT JOIN usuarios u2 ON t.telefono_destino = u2.telefono
        WHERE t.telefono_origen = ? OR t.telefono_destino = ?
        ORDER BY t.fecha DESC`,
-      [telefono, telefono],
+      [telefono, telefono]
     );
 
     res.json(results);
   } catch (err) {
-    console.error("❌ ERROR GET MOVIMIENTOS:", err);
-    res.status(500).json({ msg: "Error al traer transacciones" });
+    console.error("❌ ERROR GET MOVIMIENTOS:", err.message);
+    res.status(401).json({ msg: "Token inválido o error del servidor" });
   }
 };
 
 // =======================
-// Buscar usuario por celular o nombre
+// Buscar usuarios
 // =======================
 exports.buscarUsuarios = async (req, res) => {
   try {
@@ -138,12 +114,12 @@ exports.buscarUsuarios = async (req, res) => {
       WHERE telefono LIKE ? OR nombre LIKE ?
       LIMIT 5
     `;
+
     const params = [`%${termino}%`, `%${termino}%`];
 
     const [results] = await db.execute(query, params);
 
     res.json(results);
-    console.log("Resultados:", results);
   } catch (err) {
     console.error("❌ ERROR BUSQUEDA:", err);
     res.status(500).json({ msg: "Error del servidor" });
@@ -151,55 +127,61 @@ exports.buscarUsuarios = async (req, res) => {
 };
 
 // =======================
-// Hacer transferencia entre usuarios
+// Transferencia
 // =======================
 exports.transferencia = async (req, res) => {
   try {
-    const telefono_origen = req.user.telefono;
+    const decoded = getUserFromToken(req);
+    const telefono_origen = decoded.telefono;
+
     const { telefono_destino, monto } = req.body;
     const montoNum = parseFloat(monto);
 
-    if (!telefono_destino || !montoNum || montoNum <= 0)
+    if (!telefono_destino || !montoNum || montoNum <= 0) {
       return res.status(400).json({ msg: "Campos inválidos" });
+    }
 
-    // Obtener saldo del emisor
+    // 🔹 Obtener saldo del emisor
     const [emisorRows] = await db.execute(
       "SELECT saldo FROM usuarios WHERE telefono = ?",
-      [telefono_origen],
+      [telefono_origen]
     );
 
-    if (emisorRows.length === 0)
+    if (emisorRows.length === 0) {
       return res.status(404).json({ msg: "Usuario emisor no encontrado" });
+    }
 
-    if (emisorRows[0].saldo < montoNum)
+    if (emisorRows[0].saldo < montoNum) {
       return res.status(400).json({ msg: "Saldo insuficiente" });
+    }
 
-    // Actualizar saldo del emisor
+    // 🔹 Actualizar saldo
     await db.execute(
       "UPDATE usuarios SET saldo = saldo - ? WHERE telefono = ?",
-      [montoNum, telefono_origen],
+      [montoNum, telefono_origen]
     );
 
-    // Actualizar saldo del receptor
     await db.execute(
       "UPDATE usuarios SET saldo = saldo + ? WHERE telefono = ?",
-      [montoNum, telefono_destino],
+      [montoNum, telefono_destino]
     );
 
-    // Insertar transacción
+    // 🔹 Registrar transacción
     await db.execute(
-      "INSERT INTO transacciones (telefono_origen, telefono_destino, monto, estado, referencia, fecha) VALUES (?, ?, ?, 'completada', ?, NOW())",
+      `INSERT INTO transacciones 
+       (telefono_origen, telefono_destino, monto, estado, referencia, fecha) 
+       VALUES (?, ?, ?, 'completada', ?, NOW())`,
       [
         telefono_origen,
         telefono_destino,
         montoNum,
         `Transferencia de ${telefono_origen} a ${telefono_destino}`,
-      ],
+      ]
     );
 
     res.json({ msg: "Transferencia realizada correctamente" });
   } catch (err) {
-    console.error("❌ ERROR TRANSACCION:", err);
-    res.status(500).json({ msg: "Error al procesar la transferencia" });
+    console.error("❌ ERROR TRANSACCION:", err.message);
+    res.status(401).json({ msg: "Token inválido o error del servidor" });
   }
 };
