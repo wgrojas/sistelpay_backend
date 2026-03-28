@@ -161,58 +161,113 @@ exports.login = async (req, res) => {
     res.status(500).json({ msg: "Error del servidor" });
   }
 };
+// 
 // ================= REGISTER =================
 exports.register = async (req, res) => {
   const { nombre, identidad, telefono, email, password } = req.body;
- console.log("📩 BODY:", req.body);
 
+  console.log("📩 BODY:", req.body);
 
+  // 🔴 Validación
   if (!nombre || !identidad || !telefono || !email || !password) {
     return res.status(400).json({ msg: "Faltan datos" });
   }
 
-  // Validar duplicados
-  await db.query(
-    "SELECT * FROM usuarios WHERE telefono = ? OR email = ? OR identidad = ?",
-    [telefono, email, identidad],
-    async (err, results) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ msg: "Error del servidor" });
-      }
+  try {
+    // 🔍 Validar duplicados
+    const [results] = await db.query(
+      "SELECT * FROM usuarios WHERE telefono = ? OR email = ? OR identidad = ?",
+      [telefono, email, identidad]
+    );
 
-      if (results.length > 0) {
-        return res.status(400).json({ msg: "El usuario ya existe" });
-      }
-
-      try {
-        const hash = await bcrypt.hash(password, 10);
-        const saldoInicial = 100000;
-
-        await db.query(
-          "INSERT INTO usuarios (nombre, identidad, telefono, email, password, saldo) VALUES (?, ?, ?, ?, ?, ?)",
-          [nombre, identidad, telefono, email, hash, saldoInicial],
-          (err, result) => {
-            if (err) {
-              console.error(err);
-              return res.status(500).json({ msg: "Error al registrar" });
-            }
-
-            res.json({
-              user_id: result.insertId,
-              nombre,
-              identidad,
-              telefono,
-              saldo: saldoInicial,
-            });
-          }
-        );
-      } catch (error) {
-        res.status(500).json({ msg: "Error en el servidor" });
-      }
+    if (results.length > 0) {
+      return res.status(400).json({ msg: "El usuario ya existe" });
     }
-  );
+
+    // 🔐 Encriptar contraseña
+    const hash = await bcrypt.hash(password, 10);
+    const saldoInicial = 100000;
+
+    // 💾 Insertar usuario
+    const [result] = await db.query(
+      "INSERT INTO usuarios (nombre, identidad, telefono, email, password, saldo) VALUES (?, ?, ?, ?, ?, ?)",
+      [nombre, identidad, telefono, email, hash, saldoInicial]
+    );
+
+    console.log("✅ Usuario registrado:", result.insertId);
+
+    // ✅ Respuesta
+    return res.json({
+      user_id: result.insertId,
+      nombre,
+      identidad,
+      telefono,
+      saldo: saldoInicial,
+    });
+
+  } catch (error) {
+    console.error("❌ ERROR REGISTER:", error);
+
+    return res.status(500).json({
+      msg: "Error en el servidor",
+      error: error.message, // 🔥 esto te ayuda a debug
+    });
+  }
 };
+
+// // ================= REGISTER =================
+// exports.register = async (req, res) => {
+//   const { nombre, identidad, telefono, email, password } = req.body;
+
+//   console.log("📩 BODY:", req.body);
+
+//   // 🔴 Validación básica
+//   if (!nombre || !identidad || !telefono || !email || !password) {
+//     return res.status(400).json({ msg: "Faltan datos" });
+//   }
+
+//   try {
+//     // 🔍 Validar duplicados
+//     const [results] = await db.promise().query(
+//       "SELECT * FROM usuarios WHERE telefono = ? OR email = ? OR identidad = ?",
+//       [telefono, email, identidad]
+//     );
+
+//     if (results.length > 0) {
+//       return res.status(400).json({ msg: "El usuario ya existe" });
+//     }
+
+//     // 🔐 Encriptar contraseña
+//     const hash = await bcrypt.hash(password, 10);
+
+//     const saldoInicial = 100000;
+
+//     // 💾 Insertar usuario
+//     const [result] = await db.promise().query(
+//       "INSERT INTO usuarios (nombre, identidad, telefono, email, password, saldo) VALUES (?, ?, ?, ?, ?, ?)",
+//       [nombre, identidad, telefono, email, hash, saldoInicial]
+//     );
+
+//     console.log("✅ Usuario registrado:", result.insertId);
+
+//     // ✅ Respuesta limpia
+//     res.json({
+//       user_id: result.insertId,
+//       nombre,
+//       identidad,
+//       telefono,
+//       saldo: saldoInicial,
+//     });
+
+//   } catch (error) {
+//     console.error("❌ ERROR REGISTER:", error);
+
+//     res.status(500).json({
+//       msg: "Error en el servidor",
+//       error: error.message, // 🔥 para debug
+//     });
+//   }
+// };
 
 // // ================= BUSCAR USUARIO POR TELÉFONO =================
 // exports.buscarPorTelefono = (req, res) => {
